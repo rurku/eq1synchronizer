@@ -1,9 +1,12 @@
+#include <LowPower.h>
+
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);           //  setup serial
 
   pinMode(2, INPUT_PULLUP);
-  pinMode(A5, INPUT_PULLUP);
+  pinMode(13, OUTPUT);
+  // pinMode(A5, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(2), countInterrupt, FALLING);
 
 }
@@ -17,7 +20,7 @@ volatile bool measureReady = false;
 #define CYCLE_DESIRED_MICROS 1005561
 #define PULSES_PER_CYCLE 160
 
-unsigned char duty = 15;
+unsigned char duty = 40;
 unsigned long lastMicros, nowMicros;
 volatile unsigned long diff;
 
@@ -54,6 +57,10 @@ void countInterrupt() {
 int avgCount = 0;
 unsigned long sumDiff = 0;
 
+bool isSync = false;
+unsigned long syncMicros;
+unsigned long syncCycles;
+
 // unsigned long lastMicros2;
 void loop() {
 
@@ -69,26 +76,58 @@ void loop() {
   //   Serial.println(totalCount);
   // }
   // lastMicros2 = mic;  
-  
-  while (!measureReady) {};
-  measureReady = false;
-  if (diff > CYCLE_DESIRED_MICROS && duty < 255) {
-    duty ++;
-  } else if (diff < CYCLE_DESIRED_MICROS && duty > 0)
-  {
-    duty --;
-  }
-  analogWrite(3, duty);
-  Serial.print(diff);
-  Serial.print(' ');
-  Serial.println(duty);
+  LowPower.idle(SLEEP_FOREVER, ADC_OFF, TIMER2_OFF, TIMER1_OFF, TIMER0_ON, SPI_OFF, USART0_ON, TWI_OFF);
+  if(measureReady) {
+    measureReady = false;
+    if (abs(((long)diff - CYCLE_DESIRED_MICROS) * 100) / CYCLE_DESIRED_MICROS < 5) 
+    {
+      isSync = true;
+      syncMicros += diff;
+      syncCycles += 1;
+      if (syncMicros > CYCLE_DESIRED_MICROS * syncCycles) 
+      {
+        if (diff > CYCLE_DESIRED_MICROS)
+        {
+          duty = min(duty + 1, 255);
+        }
+      } 
+      else
+      {
+        if (diff < CYCLE_DESIRED_MICROS)
+        {
+          duty = max(duty - 1, 20);
+        }
+      }
+    } 
+    else
+    {
+      isSync = false;
+      syncMicros = 0;
+      syncCycles = 0;
+      if (diff > CYCLE_DESIRED_MICROS)
+      {
+        duty = min(duty + 1, 255);
+      } 
+      else
+      {
+        duty = max(duty - 1, 20);
+      }  
+    }
 
-  avgCount++;
-  sumDiff += diff;
-  if (avgCount == 10) {
-    Serial.println(sumDiff / 10);
-    avgCount = 0;
-    sumDiff = 0;
+    analogWrite(5, duty);
+    Serial.print(diff);
+    Serial.print(' ');
+    Serial.println(duty);
+    if (isSync) {
+      digitalWrite(13, HIGH);
+      delay(10);
+      digitalWrite(13, LOW);
+    }
+    else
+    {
+      digitalWrite(13, LOW);
+      delay(10);
+      digitalWrite(13, HIGH);
+    }
   }
-
 }
