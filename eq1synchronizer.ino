@@ -1,12 +1,14 @@
 // upload command
 // arduino_debug.exe --upload eq1synchronizer.ino --board myboards:avr:uno1Mhz 2>&1 | grep -v StatusLogger
 
+// Circuit design https://easyeda.com/rurku/eq2-motor-clock-extension
+
 #include <LowPower.h>
 
 //#define DEBUG
 
 #define ASSR_READY_MASK (_BV(TCN2UB) | _BV(OCR2AUB) | _BV(OCR2BUB) | _BV(TCR2AUB) | _BV(TCR2BUB))
-#define PIN_FAST 9
+#define PIN_FAST A5
 #define PIN_PWM 6
 
 
@@ -75,12 +77,6 @@ void setup() {
 
   sei();
 
-}
-
-volatile bool dontSleep = false;
-void noSleep()
-{
-  dontSleep = true;
 }
 
 bool volatile countReady = false;
@@ -189,9 +185,9 @@ void loop() {
 
     countLastSecond = count;
 
-    analogWrite(6, duty);
+    analogWrite(PIN_PWM, duty);
     // the LED will toggle in TIMER2_COMPA_vect. If isSync = true then LED will be on for 1/8s and off for the rest of the cycle. If isSync = false then LED will be off for 1/8s and on for the rest of the cycle.
-    digitalWrite(13, isSync ? HIGH : LOW);
+    digitalWrite(LED_BUILTIN, isSync ? HIGH : LOW);
     
     #ifdef DEBUG
     Serial.print(diff);
